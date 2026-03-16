@@ -33,21 +33,25 @@ body {
 
 /* === Command Center additions === */
 
-/* New colour token */
+/* New colour tokens */
 :root {
   --accent-orange: #f59e0b;
+  --accent-green: #22c55e;
+  --accent-blue: #4f8cff;
 }
 
 /* Signal tiles */
 .signal-tile {
   transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
 }
-.signal-tile:hover:not(:disabled) {
+.signal-tile:hover:not(:disabled):not(.empty) {
   background: rgba(255,255,255,0.04);
   border-color: var(--accent) !important;
 }
-.signal-tile:disabled {
+.signal-tile:disabled,
+.signal-tile.empty {
   cursor: default;
+  opacity: 0.45;
 }
 
 /* Skeleton pulse for tiles during streaming */
@@ -76,8 +80,8 @@ body {
 }
 .brief-panel-zone {
   transition: width 300ms ease;
-  overflow: hidden;
-  flex-shrink: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  flex-shrink: 0;
   max-height: calc(100vh - 120px);
 }
