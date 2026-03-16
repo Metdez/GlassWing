@@ -5,7 +5,6 @@ interface Props {
   brief: ResearchBrief;
   onGenerateMemo: () => void;
   memoLoading: boolean;
-  memoError?: string | null;
   onAsk: () => void;
   onNewSearch: () => void;
 }
@@ -14,7 +13,6 @@ export default function CompanyHeader({
   brief,
   onGenerateMemo,
   memoLoading,
-  memoError,
   onAsk,
   onNewSearch,
 }: Props) {
@@ -123,20 +121,6 @@ export default function CompanyHeader({
         )}
       </div>
 
-      {/* Memo error */}
-      {memoError && (
-        <div
-          className="mt-3 rounded px-3 py-2 text-xs"
-          style={{
-            background: 'rgba(255,79,79,0.08)',
-            border: '1px solid rgba(255,79,79,0.2)',
-            color: 'var(--accent-red)',
-            fontFamily: 'var(--font-ibm-sans)',
-          }}
-        >
-          Memo failed: {memoError}
-        </div>
-      )}
     </div>
   );
 }
