@@ -41,7 +41,7 @@ const TILES: TileDef[] = [
 ];
 
 interface Props {
-  brief: ResearchBrief;
+  brief: Partial<ResearchBrief>;
   isStreaming: boolean;
 }
 
@@ -55,7 +55,7 @@ export default function CommandCenter({ brief, isStreaming }: Props) {
   const panelOpen = activeTile !== null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', width: '100%', alignItems: 'flex-start', gap: '16px' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', width: '100%', alignItems: 'flex-start' }}>
       {/* Grid zone */}
       <div
         className="brief-grid-zone"
