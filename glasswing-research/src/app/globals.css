@@ -6,7 +6,7 @@
   --border: rgba(255, 255, 255, 0.06);
   --accent: #4f8cff;
   --accent-red: #ff4f4f;
-  --accent-green: #4fff8c;
+  --accent-green: #22c55e;
   --text-primary: #e8e8ed;
   --text-secondary: #6b6b80;
 }
@@ -36,7 +36,6 @@ body {
 /* New colour tokens */
 :root {
   --accent-orange: #f59e0b;
-  --accent-green: #22c55e;
   --accent-blue: #4f8cff;
 }
 
