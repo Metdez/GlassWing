@@ -78,3 +78,73 @@ body {
   border-radius: 12px;
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border);
 }
+
+/* === Mobile responsive: command-center grid === */
+.command-center-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (min-width: 480px) {
+  .command-center-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+}
+@media (min-width: 768px) {
+  .command-center-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+}
+@media (min-width: 1024px) {
+  .command-center-grid {
+    grid-template-columns: repeat(5, minmax(160px, 1fr));
+    gap: 12px;
+  }
+}
+
+/* Reduce tile padding/height on mobile */
+@media (max-width: 480px) {
+  .signal-tile {
+    padding: 14px !important;
+    min-height: 88px !important;
+  }
+}
+
+/* === Mobile responsive: CommandCenter overlay panel === */
+.cc-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(520px, 60vw);
+  transform: translateX(calc(100% + 16px));
+  pointer-events: none;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 20;
+}
+.cc-panel--open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Mobile: bottom sheet slides up from bottom */
+@media (max-width: 768px) {
+  .cc-panel {
+    position: fixed;
+    top: auto !important;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    transform: translateY(100%);
+    border-radius: 16px 16px 0 0 !important;
+  }
+  .cc-panel--open {
+    transform: translateY(0);
+  }
+  .brief-overlay-panel {
+    max-height: 72vh;
+    border-radius: 16px 16px 0 0;
+  }
+}

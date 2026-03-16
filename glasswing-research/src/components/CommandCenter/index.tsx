@@ -55,14 +55,8 @@ export default function CommandCenter({ brief, isStreaming }: Props) {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Tile grid — always full width */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, minmax(160px, 1fr))',
-          gap: '12px',
-        }}
-      >
+      {/* Tile grid — responsive columns via CSS */}
+      <div className="command-center-grid">
         {TILES.map(tile => {
           const headline = tile.getHeadline(brief);
           const isEmpty = headline === '—';
@@ -88,19 +82,9 @@ export default function CommandCenter({ brief, isStreaming }: Props) {
         />
       )}
 
-      {/* Overlay panel — slides in from right, floats above grid */}
+      {/* Overlay panel — slides in from right on desktop, bottom sheet on mobile */}
       <div
-        className="brief-overlay-panel"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: 'min(520px, 60vw)',
-          zIndex: 20,
-          transform: panelOpen ? 'translateX(0)' : 'translateX(calc(100% + 16px))',
-          transition: 'transform 280ms cubic-bezier(0.4, 0, 0.2, 1)',
-          pointerEvents: panelOpen ? 'auto' : 'none',
-        }}
+        className={`brief-overlay-panel cc-panel${panelOpen ? ' cc-panel--open' : ''}`}
       >
         {activeTile && (
           <DetailPanel

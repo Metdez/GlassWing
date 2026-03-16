@@ -138,7 +138,7 @@ export default function Home() {
   if ((state === 'done' || state === 'streaming') && activeBrief) {
     return (
       <div style={{ minHeight: '100vh' }}>
-        <main style={{ padding: '2rem 2rem' }}>
+        <main style={{ padding: 'clamp(0.75rem, 4vw, 2rem)' }}>
           <div className="max-w-5xl mx-auto">
             {/* Memo error banner */}
             {memoError && (

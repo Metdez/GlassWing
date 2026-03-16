@@ -78,7 +78,7 @@ export default function BriefChat({ brief, isOpen, onClose }: { brief: ResearchB
           position: 'fixed',
           top: 0,
           right: 0,
-          width: 320,
+          width: 'min(320px, 100vw)',
           height: '100vh',
           transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.25s ease',
