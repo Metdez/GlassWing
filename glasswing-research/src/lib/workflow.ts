@@ -9,7 +9,7 @@ export type StreamEvent =
   | { type: 'ai_insights'; data: { chatgptSays?: string; perplexitySays?: string } }
   | { type: 'enrichment'; data: { orgEnrichment?: OrgEnrichment; apolloNewsArticles?: NewsArticle[]; jobPostings?: JobPosting[]; totalJobPostings?: number; newsResults?: NewsResult[]; newsAiSummary?: string } }
   | { type: 'people'; data: { companyLeadership?: NetworkPerson[]; companyAlumni?: NetworkPerson[] } }
-  | { type: 'competitors'; data: { competitorData?: CompetitorComparison[]; competitors?: { name: string; url: string; description: string }[]; moatAiSummary?: string } }
+  | { type: 'competitors'; data: { competitorData?: CompetitorComparison[]; competitors?: { name: string; url: string; description: string; threat?: string }[]; moatAiSummary?: string } }
   | { type: 'analysis'; data: { sections: ResearchBrief['sections'] } }
   | { type: 'done'; data: ResearchBrief }
   | { type: 'error'; data: { error: string } };

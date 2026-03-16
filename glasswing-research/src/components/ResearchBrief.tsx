@@ -8,7 +8,6 @@ interface Props {
   brief: ResearchBriefType;
   onGenerateMemo: () => void;
   memoLoading: boolean;
-  memoError?: string | null;
   onAsk: () => void;
   onNewSearch: () => void;
   isStreaming?: boolean;
@@ -32,7 +31,6 @@ export default function ResearchBrief({
   brief,
   onGenerateMemo,
   memoLoading,
-  memoError,
   onAsk,
   onNewSearch,
   isStreaming,
@@ -46,7 +44,6 @@ export default function ResearchBrief({
         brief={brief}
         onGenerateMemo={onGenerateMemo}
         memoLoading={memoLoading}
-        memoError={memoError}
         onAsk={onAsk}
         onNewSearch={onNewSearch}
       />

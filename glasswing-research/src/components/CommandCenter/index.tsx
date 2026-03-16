@@ -23,21 +23,20 @@ export type TileId =
 interface TileDef {
   id: TileId;
   label: string;
-  color: 'default' | 'green' | 'orange';
   getHeadline: (b: Partial<ResearchBrief>) => string;
 }
 
 const TILES: TileDef[] = [
-  { id: 'team',        label: 'TEAM',        color: 'default', getHeadline: getTeamHeadline },
-  { id: 'product',     label: 'PRODUCT',     color: 'default', getHeadline: getProductHeadline },
-  { id: 'market',      label: 'MARKET',      color: 'default', getHeadline: getMarketHeadline },
-  { id: 'competitors', label: 'COMPETITORS', color: 'default', getHeadline: getCompetitorsHeadline },
-  { id: 'funding',     label: 'FUNDING',     color: 'green',   getHeadline: getFundingHeadline },
-  { id: 'moat',        label: '⬡ MOAT',      color: 'orange',  getHeadline: getMoatHeadline },
-  { id: 'flags',       label: '⚠ FLAGS',     color: 'orange',  getHeadline: getFlagsHeadline },
-  { id: 'people',      label: 'PEOPLE',      color: 'default', getHeadline: getPeopleHeadline },
-  { id: 'intel',       label: 'INTEL',       color: 'default', getHeadline: getIntelHeadline },
-  { id: 'fit',         label: 'FIT',         color: 'green',   getHeadline: getFitHeadline },
+  { id: 'team',        label: 'TEAM',        getHeadline: getTeamHeadline },
+  { id: 'product',     label: 'PRODUCT',     getHeadline: getProductHeadline },
+  { id: 'market',      label: 'MARKET',      getHeadline: getMarketHeadline },
+  { id: 'competitors', label: 'COMPETITORS', getHeadline: getCompetitorsHeadline },
+  { id: 'funding',     label: 'FUNDING',     getHeadline: getFundingHeadline },
+  { id: 'moat',        label: 'MOAT',        getHeadline: getMoatHeadline },
+  { id: 'flags',       label: 'FLAGS',       getHeadline: getFlagsHeadline },
+  { id: 'people',      label: 'PEOPLE',      getHeadline: getPeopleHeadline },
+  { id: 'intel',       label: 'INTEL',       getHeadline: getIntelHeadline },
+  { id: 'fit',         label: 'FIT',         getHeadline: getFitHeadline },
 ];
 
 interface Props {
@@ -55,43 +54,53 @@ export default function CommandCenter({ brief, isStreaming }: Props) {
   const panelOpen = activeTile !== null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', width: '100%', alignItems: 'flex-start' }}>
-      {/* Grid zone */}
+    <div style={{ position: 'relative' }}>
+      {/* Tile grid — always full width */}
       <div
-        className="brief-grid-zone"
-        style={{ width: panelOpen ? '45%' : '100%' }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, minmax(160px, 1fr))',
+          gap: '12px',
+        }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-            gap: '8px',
-          }}
-        >
-          {TILES.map(tile => {
-            const headline = tile.getHeadline(brief);
-            const isEmpty = headline === '—';
-            // Skeleton: streaming and no data yet
-            const isSkeleton = isStreaming && isEmpty;
-            return (
-              <SignalTile
-                key={tile.id}
-                label={tile.label}
-                headline={headline}
-                tileColor={tile.color}
-                isActive={activeTile === tile.id}
-                isSkeleton={isSkeleton}
-                onClick={() => handleTileClick(tile.id)}
-              />
-            );
-          })}
-        </div>
+        {TILES.map(tile => {
+          const headline = tile.getHeadline(brief);
+          const isEmpty = headline === '—';
+          const isSkeleton = isStreaming && isEmpty;
+          return (
+            <SignalTile
+              key={tile.id}
+              label={tile.label}
+              headline={headline}
+              isActive={activeTile === tile.id}
+              isSkeleton={isSkeleton}
+              onClick={() => handleTileClick(tile.id)}
+            />
+          );
+        })}
       </div>
 
-      {/* Panel zone */}
+      {/* Backdrop — closes panel on outside click */}
+      {panelOpen && (
+        <div
+          onClick={() => setActiveTile(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+        />
+      )}
+
+      {/* Overlay panel — slides in from right, floats above grid */}
       <div
-        className="brief-panel-zone"
-        style={{ width: panelOpen ? '55%' : '0' }}
+        className="brief-overlay-panel"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: 'min(520px, 60vw)',
+          zIndex: 20,
+          transform: panelOpen ? 'translateX(0)' : 'translateX(calc(100% + 16px))',
+          transition: 'transform 280ms cubic-bezier(0.4, 0, 0.2, 1)',
+          pointerEvents: panelOpen ? 'auto' : 'none',
+        }}
       >
         {activeTile && (
           <DetailPanel

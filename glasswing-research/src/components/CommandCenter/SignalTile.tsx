@@ -1,26 +1,16 @@
 'use client';
 
-type TileColor = 'default' | 'green' | 'orange';
-
 interface Props {
   label: string;
   headline: string;
-  tileColor?: TileColor;
   isActive?: boolean;
   isSkeleton?: boolean;
   onClick?: () => void;
 }
 
-const TILE_BORDER: Record<TileColor, string> = {
-  default: 'var(--border)',
-  green:   'var(--accent-green)',
-  orange:  'var(--accent-orange)',
-};
-
 export default function SignalTile({
   label,
   headline,
-  tileColor = 'default',
   isActive = false,
   isSkeleton = false,
   onClick,
@@ -28,9 +18,7 @@ export default function SignalTile({
   const isEmpty = headline === '—';
   const interactive = !isEmpty && !isSkeleton;
 
-  const borderColor = isActive
-    ? 'var(--accent)'
-    : TILE_BORDER[tileColor];
+  const borderColor = isActive ? 'var(--accent)' : 'var(--border)';
 
   return (
     <button
@@ -40,15 +28,20 @@ export default function SignalTile({
       style={{
         background: 'var(--surface)',
         border: `1px solid ${borderColor}`,
-        borderRadius: '8px',
-        padding: '12px 14px',
+        borderRadius: '10px',
+        padding: '20px',
+        minHeight: '110px',
         opacity: isEmpty ? 0.45 : 1,
+        cursor: interactive ? 'pointer' : 'default',
         boxShadow: isActive ? `0 0 0 1px var(--accent)` : undefined,
       }}
     >
       <div
-        className="text-[9px] uppercase tracking-widest mb-2"
         style={{
+          fontSize: '10px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.1em',
+          marginBottom: '10px',
           color: 'var(--text-secondary)',
           fontFamily: 'var(--font-jetbrains)',
         }}
@@ -63,10 +56,16 @@ export default function SignalTile({
         />
       ) : (
         <div
-          className="text-sm font-medium"
           style={{
+            fontSize: '15px',
+            fontWeight: 500,
             color: isEmpty ? 'var(--text-secondary)' : 'var(--text-primary)',
             fontFamily: 'var(--font-jetbrains)',
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            lineHeight: '1.4',
           }}
         >
           {headline}

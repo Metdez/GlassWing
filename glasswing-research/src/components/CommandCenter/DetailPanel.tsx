@@ -1,6 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
-import type { ResearchBrief, NewsArticle } from '@/lib/types';
+import type { ResearchBrief, NewsArticle, CompetitorComparison } from '@/lib/types';
 import BriefSection from '@/components/BriefSection';
 import type { TileId } from './index';
 
@@ -220,9 +220,9 @@ function MarketContent({ brief }: { brief: PartialBrief }) {
 
 function CompetitorsContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
-  const hasTable = brief.competitorData && brief.competitorData.length > 0;
-  const hasMoat = brief.moatAiSummary;
-  const hasNeither = !hasTable && !hasMoat;
+  const hasList = (brief.competitors?.length ?? 0) > 0;
+  const hasText = !!(s.competitorComparison || brief.moatAiSummary);
+  const hasNeither = !hasList && !hasText;
 
   if (hasNeither) {
     return (
@@ -232,54 +232,85 @@ function CompetitorsContent({ brief }: { brief: PartialBrief }) {
     );
   }
 
+  // Build a lookup for Apollo metrics by competitor name (case-insensitive)
+  const metricsMap = new Map<string, CompetitorComparison>();
+  (brief.competitorData ?? []).forEach(c => metricsMap.set(c.name.toLowerCase(), c));
+
   return (
     <div className="flex flex-col gap-3">
-      <BriefSection title="Competitor Comparison" content={s.competitorComparison || ''} icon="◈">
-        {hasTable && (
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full text-[11px] border-collapse" style={{ fontFamily: 'var(--font-ibm-mono)' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Company','Employees','Funding','Revenue','Stage','Founded'].map(h => (
-                    <th key={h} className="text-left py-2 pr-4 uppercase tracking-widest font-normal" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)', fontSize: '9px' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {brief.orgEnrichment && (
-                  <tr style={{ background: 'rgba(79,140,255,0.08)', borderBottom: '1px solid rgba(79,140,255,0.2)' }}>
-                    <td className="py-2 pr-4 font-medium" style={{ color: 'var(--accent-blue)' }}>
-                      {brief.companyName}
-                      <span className="ml-1.5 text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(79,140,255,0.15)', color: 'var(--accent-blue)' }}>you</span>
-                    </td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-primary)' }}>{brief.orgEnrichment.employeeCount > 0 ? brief.orgEnrichment.employeeCount.toLocaleString() : 'N/A'}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-primary)' }}>{brief.orgEnrichment.totalFunding || 'N/A'}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-primary)' }}>{brief.orgEnrichment.annualRevenue || 'N/A'}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-primary)' }}>{brief.orgEnrichment.latestFundingStage || 'N/A'}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-primary)' }}>{brief.orgEnrichment.foundedYear > 0 ? brief.orgEnrichment.foundedYear : 'N/A'}</td>
-                  </tr>
+      {/* Competitor cards — primary content */}
+      {hasList && (
+        <div className="flex flex-col gap-2">
+          {(brief.competitors ?? []).map((c, i) => {
+            const metrics = metricsMap.get(c.name.toLowerCase());
+            return (
+              <div
+                key={i}
+                className="rounded-xl px-4 py-3 flex flex-col gap-1.5"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderLeft: '3px solid #f59e0b',
+                }}
+              >
+                {/* Name */}
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-jetbrains)' }}>
+                  {c.name}
+                </span>
+                {/* Description */}
+                {c.description && (
+                  <p className="text-xs leading-snug" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-sans)' }}>
+                    {c.description}
+                  </p>
                 )}
-                {(brief.competitorData ?? []).map((c, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td className="py-2 pr-4 font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-secondary)' }}>{c.employeeCount > 0 ? c.employeeCount.toLocaleString() : 'N/A'}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-secondary)' }}>{c.totalFunding}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-secondary)' }}>{c.annualRevenue}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-secondary)' }}>{c.latestFundingStage}</td>
-                    <td className="py-2 pr-4" style={{ color: 'var(--text-secondary)' }}>{c.foundedYear > 0 ? c.foundedYear : 'N/A'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                {/* Threat */}
+                {c.threat && (
+                  <p className="text-xs leading-snug" style={{ color: '#f59e0b', fontFamily: 'var(--font-ibm-sans)' }}>
+                    ⚠ {c.threat}
+                  </p>
+                )}
+                {/* Apollo metrics row */}
+                {metrics && (
+                  <div className="flex flex-wrap gap-3 pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                    {metrics.employeeCount > 0 && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-mono)' }}>
+                        {metrics.employeeCount.toLocaleString()} employees
+                      </span>
+                    )}
+                    {metrics.totalFunding && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-mono)' }}>
+                        {metrics.totalFunding} raised
+                      </span>
+                    )}
+                    {metrics.latestFundingStage && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-mono)' }}>
+                        {metrics.latestFundingStage}
+                      </span>
+                    )}
+                    {metrics.foundedYear > 0 && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-mono)' }}>
+                        est. {metrics.foundedYear}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full analysis — collapsed */}
+      {hasText && (
+        <details className="rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <summary className="px-5 py-3 cursor-pointer text-xs uppercase tracking-widest select-none" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)' }}>
+            ▸ Full Analysis
+          </summary>
+          <div className="px-5 pb-4 text-xs leading-relaxed" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-ibm-sans)' }}>
+            {s.competitorComparison || brief.moatAiSummary}
           </div>
-        )}
-        {!hasTable && hasMoat && (
-          <div className="mt-3 text-xs" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-sans)' }}>
-            <p>{brief.moatAiSummary}</p>
-            <p className="mt-2 text-[10px]" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>No competitor table — Apollo key not configured.</p>
-          </div>
-        )}
-      </BriefSection>
+        </details>
+      )}
     </div>
   );
 }

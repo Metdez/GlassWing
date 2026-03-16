@@ -185,7 +185,7 @@ INSTRUCTIONS FOR EACH FIELD:
   MOAT TYPE: Identify primary moat type(s) — data moat, network effects, switching costs, technical complexity, regulatory/compliance advantage, first-mover in niche, distribution exclusivity. Provide one concrete evidence point per claimed moat.
   VULNERABILITY: Where is the company weakest? Where could a well-funded competitor erode their position? Be specific. If competitive intelligence data was limited, reason from first principles and note the limitation.
 
-- competitors array: Populate using Apollo comparison data when available. Each entry: name (exact company name), url (domain from data, or best-known URL if not in data, empty string if truly unknown), description (one sentence: what they do AND how they differ from the target on one specific dimension). Do not invent competitor companies — only list ones confirmed by the research. Maximum 5 entries.
+- competitors array: Populate using Apollo comparison data when available. Each entry: name (exact company name), url (domain from data, or best-known URL if not in data, empty string if truly unknown), description (one sentence: what they do AND how they differ from the target on one specific dimension), threat (one sentence: the specific risk this competitor poses to the target — e.g. distribution advantage, superior funding, incumbent brand, faster shipping velocity, or dominant market share). Do not invent competitor companies — only list ones confirmed by the research. Maximum 5 entries.
 
 Respond with this exact JSON structure. Every field must be populated — use "Not available — requires further diligence" only as a last resort when evidence is genuinely absent:
 {
@@ -214,7 +214,8 @@ Respond with this exact JSON structure. Every field must be populated — use "N
     {
       "name": "string — exact competitor company name",
       "url": "string — competitor domain, empty string if unknown",
-      "description": "string — one sentence: what they do and one specific way they differ from or compete with the target company"
+      "description": "string — one sentence: what they do and one specific way they differ from or compete with the target company",
+      "threat": "string — one sentence: the specific risk this competitor poses to the target company"
     }
   ]
 }`;

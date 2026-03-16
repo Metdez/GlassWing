@@ -117,7 +117,7 @@ export interface ResearchBrief {
   competitorData?: CompetitorComparison[];
   companyLeadership?: NetworkPerson[];
   companyAlumni?: NetworkPerson[];
-  competitors?: { name: string; url: string; description: string }[];
+  competitors?: { name: string; url: string; description: string; threat?: string }[];
   moatAiSummary?: string;
   perplexityTeamResearch?: string;
   perplexityTeamCitations?: string[];
