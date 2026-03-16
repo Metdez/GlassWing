@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import type { ResearchBrief, NewsArticle } from '@/lib/types';
 import BriefSection from '@/components/BriefSection';
 import type { TileId } from './index';
@@ -414,7 +415,7 @@ const PANEL_TITLES: Record<TileId, string> = {
 };
 
 export default function DetailPanel({ tileId, brief, onClose }: Props) {
-  const contentMap: Record<TileId, React.ReactNode> = {
+  const contentMap: Record<TileId, ReactNode> = {
     team:        <TeamContent brief={brief} />,
     product:     <ProductContent brief={brief} />,
     market:      <MarketContent brief={brief} />,
