@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 import { runResearchWorkflow } from '@/lib/workflow';
-import type { ResearchResponse } from '@/lib/types';
+import type { StreamEvent } from '@/lib/workflow';
 
 const RequestSchema = z.object({
   url: z.string().url('Must be a valid URL'),
 });
 
-export async function POST(req: NextRequest): Promise<NextResponse<ResearchResponse>> {
+export async function POST(req: NextRequest): Promise<Response | NextResponse> {
   let url: string;
   try {
     const body = await req.json();
@@ -21,14 +21,34 @@ export async function POST(req: NextRequest): Promise<NextResponse<ResearchRespo
     );
   }
 
-  const result = await runResearchWorkflow(url);
+  const encoder = new TextEncoder();
 
-  if (!result.success) {
-    return NextResponse.json(
-      { success: false, error: result.error ?? 'Research workflow failed.' },
-      { status: 502 }
-    );
-  }
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: StreamEvent) => {
+        controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+      };
 
-  return NextResponse.json({ success: true, brief: result.brief });
+      try {
+        const result = await runResearchWorkflow(url, send);
+        if (!result.success) {
+          send({ type: 'error', data: { error: result.error ?? 'Research workflow failed.' } });
+        } else {
+          send({ type: 'done', data: result.brief! });
+        }
+      } catch (err) {
+        send({ type: 'error', data: { error: String(err) } });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }

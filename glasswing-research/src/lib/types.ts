@@ -51,6 +51,7 @@ export interface ResearchBriefSections {
   networkOpportunity: string;
   competitorComparison: string;
   competitiveMoat: string;
+  founderDeepDive: string;
 }
 
 export interface FundingRound {
@@ -118,6 +119,8 @@ export interface ResearchBrief {
   companyAlumni?: NetworkPerson[];
   competitors?: { name: string; url: string; description: string }[];
   moatAiSummary?: string;
+  perplexityTeamResearch?: string;
+  perplexityTeamCitations?: string[];
 }
 
 export interface WorkflowResult {

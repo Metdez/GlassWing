@@ -63,15 +63,36 @@ function CompetitorCard({
   );
 }
 
+function SkeletonBlock({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="flex flex-col gap-2 py-1">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div
+          key={i}
+          className="animate-pulse rounded"
+          style={{
+            height: '12px',
+            width: i === lines - 1 ? '60%' : '100%',
+            background: 'var(--border)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   brief: ResearchBriefType;
   onGenerateMemo: () => void;
+  isStreaming?: boolean;
 }
 
-export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
+export default function ResearchBrief({ brief, onGenerateMemo, isStreaming }: Props) {
+  void onGenerateMemo; // available for future use
   const date = new Date(brief.scrapedAt).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
+  const s = (brief.sections ?? {}) as ResearchBriefType['sections'];
 
   return (
     <div className="w-full">
@@ -105,15 +126,55 @@ export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
 
       {/* Sections */}
       <div className="flex flex-col gap-3">
-        <div id="section-overview"><BriefSection title="Company Overview" content={brief.sections.companyOverview} icon="◈" /></div>
-        <div id="section-team"><BriefSection title="Founding Team" content={brief.sections.foundingTeam} icon="◈" /></div>
-        <div id="section-product"><BriefSection title="Product" content={brief.sections.product} icon="◈" /></div>
-        <div id="section-market"><BriefSection title="Target market" content={brief.sections.targetMarket} icon="◈" /></div>
-        <div id="section-competitive"><BriefSection title="Competitive Landscape" content={brief.sections.competitiveLandscape} icon="◈" /></div>
-        <div id="section-search"><BriefSection title="Search Presence" content={brief.sections.searchPresence} icon="◈" /></div>
-        <div id="section-red-flags"><BriefSection title="Red Flags" content={brief.sections.redFlags} icon="⚠" variant="warning" /></div>
+        <div id="section-overview"><BriefSection title="Company Overview" content={s.companyOverview || ''} icon="◈">{isStreaming && !s.companyOverview && <SkeletonBlock />}</BriefSection></div>
+        <div id="section-team">
+          <BriefSection title="Founding Team" content={s.foundingTeam || ''} icon="◈">
+            {isStreaming && !s.foundingTeam && <SkeletonBlock />}
+            {s.founderDeepDive && s.founderDeepDive !== 'Not available' && (
+              <div className="mt-4 flex flex-col gap-3">
+                <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)' }}>
+                  Founder Profiles
+                </span>
+                {s.founderDeepDive.split(/\n+/).filter(Boolean).map((line, i) => (
+                  <p
+                    key={i}
+                    className="text-xs leading-relaxed"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-ibm-sans)' }}
+                    dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }}
+                  />
+                ))}
+              </div>
+            )}
+            {brief.perplexityTeamCitations && brief.perplexityTeamCitations.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                <span className="text-[10px] uppercase tracking-widest block mb-1.5" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)' }}>
+                  Sources
+                </span>
+                <div className="flex flex-col gap-1">
+                  {brief.perplexityTeamCitations.map((citationUrl, i) => (
+                    <a
+                      key={i}
+                      href={citationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] hover:underline truncate"
+                      style={{ color: 'var(--accent)', fontFamily: 'var(--font-ibm-mono)' }}
+                    >
+                      {citationUrl}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </BriefSection>
+        </div>
+        <div id="section-product"><BriefSection title="Product" content={s.product || ''} icon="◈">{isStreaming && !s.product && <SkeletonBlock />}</BriefSection></div>
+        <div id="section-market"><BriefSection title="Target market" content={s.targetMarket || ''} icon="◈">{isStreaming && !s.targetMarket && <SkeletonBlock />}</BriefSection></div>
+        <div id="section-competitive"><BriefSection title="Competitive Landscape" content={s.competitiveLandscape || ''} icon="◈">{isStreaming && !s.competitiveLandscape && <SkeletonBlock />}</BriefSection></div>
+        <div id="section-search"><BriefSection title="Search Presence" content={s.searchPresence || ''} icon="◈">{isStreaming && !s.searchPresence && <SkeletonBlock />}</BriefSection></div>
+        <div id="section-red-flags"><BriefSection title="Red Flags" content={s.redFlags || ''} icon="⚠" variant="warning">{isStreaming && !s.redFlags && <SkeletonBlock lines={2} />}</BriefSection></div>
 
-        {brief.sections.competitiveMoat && brief.sections.competitiveMoat !== 'Not available' && (
+        {(s.competitiveMoat && s.competitiveMoat !== 'Not available') && (
           <div id="section-moat">
             {brief.competitors && brief.competitors.length > 0 && (
               <div style={{ marginBottom: '12px' }}>
@@ -137,20 +198,20 @@ export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
             )}
             <BriefSection
               title="Competitive Moat"
-              content={brief.sections.competitiveMoat}
+              content={s.competitiveMoat || ''}
               icon="⬡"
               variant="warning"
             />
           </div>
         )}
 
-        <div id="section-glasswing"><BriefSection title="Glasswing Relevance" content={brief.sections.glasswingRelevance} icon="◆" variant="positive" /></div>
-        <div id="section-ai-synthesis"><BriefSection title="AI Platform Consensus" content={brief.sections.aiConsensus} icon="◈" variant="positive" /></div>
+        <div id="section-glasswing"><BriefSection title="Glasswing Relevance" content={s.glasswingRelevance || ''} icon="◆" variant="positive">{isStreaming && !s.glasswingRelevance && <SkeletonBlock lines={2} />}</BriefSection></div>
+        <div id="section-ai-synthesis"><BriefSection title="AI Platform Consensus" content={s.aiConsensus || ''} icon="◈" variant="positive">{isStreaming && !s.aiConsensus && <SkeletonBlock lines={2} />}</BriefSection></div>
 
         {/* Competitor Comparison */}
         {brief.competitorData && brief.competitorData.length > 0 && (
           <div id="section-competitor-table">
-          <BriefSection title="Competitor Comparison" content={brief.sections.competitorComparison} icon="◈">
+          <BriefSection title="Competitor Comparison" content={s.competitorComparison || ''} icon="◈">
             <div className="overflow-x-auto mt-4">
               <table className="w-full text-[11px] border-collapse" style={{ fontFamily: 'var(--font-ibm-mono)' }}>
                 <thead>
@@ -207,7 +268,7 @@ export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
           <div id="section-funding">
           <BriefSection
             title="Funding & Financials"
-            content={brief.sections.fundingAnalysis}
+            content={s.fundingAnalysis || ''}
             icon="◈"
             variant="positive"
           >
@@ -268,7 +329,7 @@ export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
         {/* Tech Stack & Engineering */}
         {brief.orgEnrichment && (
           <div id="section-tech">
-          <BriefSection title="Tech Stack & Engineering" content={brief.sections.techStackAnalysis} icon="◈">
+          <BriefSection title="Tech Stack & Engineering" content={s.techStackAnalysis || ''} icon="◈">
             {/* Tech pills */}
             {brief.orgEnrichment.techStack.length > 0 && (
               <div className="mb-4">
@@ -306,7 +367,7 @@ export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
         )}
 
         {/* Network & Warm Intros */}
-        <div id="section-network"><BriefSection title="Network & Warm Intros" content={brief.sections.networkOpportunity} icon="◈" variant="positive" /></div>
+        <div id="section-network"><BriefSection title="Network & Warm Intros" content={s.networkOpportunity || ''} icon="◈" variant="positive">{isStreaming && !s.networkOpportunity && <SkeletonBlock lines={2} />}</BriefSection></div>
 
         {(brief.companyLeadership && brief.companyLeadership.length > 0) || (brief.companyAlumni && brief.companyAlumni.length > 0) ? (
           <div className="flex flex-col gap-2">
@@ -392,13 +453,13 @@ export default function ResearchBrief({ brief, onGenerateMemo }: Props) {
         ) : null}
 
         {/* Recent Events — Claude's analysis */}
-        <div id="section-recent-events"><BriefSection title="Recent Events" content={brief.sections.recentEvents} icon="◈" /></div>
+        <div id="section-recent-events"><BriefSection title="Recent Events" content={s.recentEvents || ''} icon="◈">{isStreaming && !s.recentEvents && <SkeletonBlock lines={2} />}</BriefSection></div>
 
         {/* News & Press — Claude's analysis of press coverage */}
-        <div id="section-news"><BriefSection title="News & Press" content={brief.sections.newsAndPress} icon="◈" /></div>
+        <div id="section-news"><BriefSection title="News & Press" content={s.newsAndPress || ''} icon="◈">{isStreaming && !s.newsAndPress && <SkeletonBlock lines={2} />}</BriefSection></div>
 
         {/* Hiring Signal — Claude's analysis of job postings */}
-        <div id="section-hiring"><BriefSection title="Hiring Signal" content={brief.sections.hiringSignal} icon="◈" /></div>
+        <div id="section-hiring"><BriefSection title="Hiring Signal" content={s.hiringSignal || ''} icon="◈">{isStreaming && !s.hiringSignal && <SkeletonBlock lines={2} />}</BriefSection></div>
 
         {/* Active Job Postings list */}
         {brief.jobPostings && brief.jobPostings.length > 0 && (() => {

@@ -6,13 +6,15 @@ import ResearchBriefComponent from '@/components/ResearchBrief';
 import BriefChat from '@/components/BriefChat';
 import InvestmentMemo from '@/components/InvestmentMemo';
 import BriefSidebar from '@/components/BriefSidebar';
-import type { ResearchBrief, ResearchResponse, MemoResponse } from '@/lib/types';
+import type { ResearchBrief, MemoResponse } from '@/lib/types';
+import type { StreamEvent } from '@/lib/workflow';
 
-type PageState = 'idle' | 'loading' | 'done' | 'memo';
+type PageState = 'idle' | 'loading' | 'streaming' | 'done' | 'memo';
 
 export default function Home() {
   const [state, setState] = useState<PageState>('idle');
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
+  const [partialBrief, setPartialBrief] = useState<Partial<ResearchBrief> | null>(null);
   const [activeUrl, setActiveUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [memo, setMemo] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
-    if (state !== 'done') return;
+    if (state !== 'done' && state !== 'streaming') return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -40,7 +42,7 @@ export default function Home() {
     elements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, [state, brief]);
+  }, [state, brief, partialBrief]);
 
   const handleSectionClick = (id: string) => {
     setActiveSectionId(id);
@@ -81,6 +83,7 @@ export default function Home() {
     setError(null);
     setMemoError(null);
     setBrief(null);
+    setPartialBrief(null);
 
     try {
       const res = await fetch('/api/research', {
@@ -88,14 +91,62 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
-      const data: ResearchResponse = await res.json();
 
-      if (data.success && data.brief) {
-        setBrief(data.brief);
-        setState('done');
-      } else {
-        setError(data.error ?? 'An unknown error occurred.');
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        setError((data as any).error ?? 'An unknown error occurred.');
         setState('idle');
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let event: StreamEvent;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            continue;
+          }
+
+          if (event.type === 'init') {
+            setPartialBrief({
+              companyName: event.data.companyName,
+              companyUrl: event.data.companyUrl,
+              scrapedAt: event.data.scrapedAt,
+              metadata: event.data.metadata,
+              sections: {} as ResearchBrief['sections'],
+            });
+            setState('streaming');
+          } else if (event.type === 'analysis') {
+            setPartialBrief(prev => prev ? { ...prev, sections: event.data.sections } : prev);
+          } else if (event.type === 'ai_insights') {
+            setPartialBrief(prev => prev ? { ...prev, ...event.data } : prev);
+          } else if (event.type === 'enrichment') {
+            setPartialBrief(prev => prev ? { ...prev, ...event.data } : prev);
+          } else if (event.type === 'people') {
+            setPartialBrief(prev => prev ? { ...prev, ...event.data } : prev);
+          } else if (event.type === 'competitors') {
+            setPartialBrief(prev => prev ? { ...prev, ...event.data } : prev);
+          } else if (event.type === 'done') {
+            setBrief(event.data);
+            setState('done');
+          } else if (event.type === 'error') {
+            setError(event.data.error);
+            setState('idle');
+          }
+        }
       }
     } catch {
       setError('Network error. Please check your connection and try again.');
@@ -103,11 +154,13 @@ export default function Home() {
     }
   }
 
-  if (state === 'done' && brief) {
+  const activeBrief = brief ?? (partialBrief as ResearchBrief | null);
+
+  if ((state === 'done' || state === 'streaming') && activeBrief) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'row' }}>
         <BriefSidebar
-          companyName={brief.companyName}
+          companyName={activeBrief.companyName}
           activeSectionId={activeSectionId}
           onSectionClick={handleSectionClick}
           onGenerateMemo={handleGenerateMemo}
@@ -129,14 +182,18 @@ export default function Home() {
                 Memo generation failed: {memoError}
               </div>
             )}
-            <ResearchBriefComponent brief={brief} onGenerateMemo={handleGenerateMemo} />
+            <ResearchBriefComponent
+              brief={activeBrief}
+              onGenerateMemo={handleGenerateMemo}
+              isStreaming={state === 'streaming'}
+            />
           </div>
         </main>
-        
-        <BriefChat brief={brief} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
-        
+
+        <BriefChat brief={activeBrief} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+
         {/* Floating chat button */}
-        {!chatOpen && (
+        {!chatOpen && state === 'done' && (
           <button
             onClick={() => setChatOpen(true)}
             className="chat-float-btn"
@@ -240,7 +297,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading State — shown only until first stream event */}
         {state === 'loading' && <LoadingState url={activeUrl} />}
       </div>
     </main>

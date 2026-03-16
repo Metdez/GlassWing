@@ -197,7 +197,7 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
             agent: 'chatgpt',
             params: { query: `What is ${companyNameForSearch}? Who are their competitors and what is their market position?` },
           },
-          timeout: 45000,
+          timeout: 20000,
         },
         ctx.toNodeContext('user', 'research-wf')
       ),
@@ -210,7 +210,7 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
             agent: 'perplexity',
             params: { query: `What is ${companyNameForSearch}? Who founded it, what do they do, and who are their main competitors?` },
           },
-          timeout: 45000,
+          timeout: 20000,
         },
         ctx.toNodeContext('user', 'research-wf')
       ),
@@ -560,7 +560,7 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
                 messages: [
                   {
                     role: 'user',
-                    content: `From these search results, extract the domain names of the top 3 direct competitors to ${companyNameForSearch}. Return ONLY a JSON array of domain strings, nothing else. Example: ["competitor1.com", "competitor2.com", "competitor3.com"]\n\nSearch results:\n${searchAnswer}`,
+                    content: `Task: Extract the domain names of the top 3 direct competitors to ${companyNameForSearch} from the search results below.\n\nRules:\n1. Return ONLY a JSON array of domain strings — no markdown, no explanation, no backticks\n2. Use root domains only (e.g., "competitor.com" not "www.competitor.com" or "competitor.com/pricing")\n3. Do NOT include the target company's own domain (${companyNameForSearch} itself)\n4. Only include companies that are clearly direct competitors — same buyer, same problem, overlapping product category\n5. If fewer than 3 clear direct competitors can be identified, return only the ones you are confident about (minimum 1, do not invent companies to reach 3)\n6. Do not include aggregators, review sites (G2, Capterra), or news sites — only actual competitor companies\n\nOutput format: ["domain1.com", "domain2.com", "domain3.com"]\n\nSearch results:\n${searchAnswer}`,
                   },
                 ],
               },
@@ -693,6 +693,71 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
   }
 
   // ============================================
+  // NODE 9.75: Perplexity Sonar — Founding Team Deep Research (optional)
+  // ============================================
+  let perplexityTeamResearch: string | null = null;
+  let perplexityTeamCitations: string[] = [];
+
+  if (process.env.PERPLEXITY_API_KEY) {
+    try {
+      const perplexityBody = {
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a venture capital research assistant. Provide detailed, factual information about company founders and leadership teams. Include their educational backgrounds, previous companies, notable achievements, and any exits or funding history. Always cite your sources.',
+          },
+          {
+            role: 'user',
+            content: `Who founded ${companyNameForSearch} (${companyUrl})? Give me detailed backgrounds on each founder and key executive including: their full name, title, educational background, previous companies they worked at or founded, any notable achievements, previous exits or fundraises, and their LinkedIn URL if findable. Also mention the company's founding story if available.`,
+          },
+        ],
+      };
+
+      let perplexityTeamResult = await httpExecutor(
+        {
+          url: 'https://api.perplexity.ai/chat/completions',
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: perplexityBody,
+          timeout: 30000,
+        },
+        ctx.toNodeContext('user', 'research-wf')
+      );
+
+      // Retry once on 429
+      if (perplexityTeamResult.success && (perplexityTeamResult.output as any)?.status === 429) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        perplexityTeamResult = await httpExecutor(
+          {
+            url: 'https://api.perplexity.ai/chat/completions',
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: perplexityBody,
+            timeout: 30000,
+          },
+          ctx.toNodeContext('user', 'research-wf')
+        );
+      }
+
+      if (perplexityTeamResult.success) {
+        ctx.storeNodeOutput('perplexityTeam', perplexityTeamResult.output);
+        const pBody = perplexityTeamResult.output as any;
+        perplexityTeamResearch = pBody?.body?.choices?.[0]?.message?.content ?? null;
+        perplexityTeamCitations = pBody?.body?.citations ?? [];
+      }
+    } catch {
+      // Non-fatal — continue without Perplexity team research
+    }
+  }
+
+  // ============================================
   // NODE 10: Analyze with Claude via Anthropic API
   // ============================================
   const analysisResult = await httpExecutor(
@@ -706,16 +771,16 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
       },
       body: {
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 3000,
+        max_tokens: 4000,
         system: RESEARCH_SYSTEM_PROMPT,
         messages: [
           {
             role: 'user',
-            content: buildUserPrompt(markdown, companyUrl, googleSerpMarkdown, chatgptSays, perplexitySays, apolloNewsArticles, orgEnrichment, jobPostings, jobPostings.length, newsAiSummary, newsResults, companyLeadership, companyAlumni, competitorData, competitorAiSummary, competitorResults, moatAiSummary, aboutPageMarkdown, founderSearchSummary),
+            content: buildUserPrompt(markdown, companyUrl, googleSerpMarkdown, chatgptSays, perplexitySays, apolloNewsArticles, orgEnrichment, jobPostings, jobPostings.length, newsAiSummary, newsResults, companyLeadership, companyAlumni, competitorData, competitorAiSummary, competitorResults, moatAiSummary, aboutPageMarkdown, founderSearchSummary, perplexityTeamResearch, perplexityTeamCitations),
           },
         ],
       },
-      timeout: 45000,
+      timeout: 120000,
     },
     ctx.toNodeContext('user', 'research-wf')
   );
@@ -762,6 +827,7 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         networkOpportunity: parsed.sections?.networkOpportunity || 'Not available',
         competitorComparison: parsed.sections?.competitorComparison || 'Not available',
         competitiveMoat: parsed.sections?.competitiveMoat || 'Not available',
+        founderDeepDive: parsed.sections?.founderDeepDive || 'Not available',
       },
       metadata: {
         pageTitle: metadata.title || '',
@@ -781,6 +847,8 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
       competitorData,
       competitors: Array.isArray(parsed.competitors) ? parsed.competitors : undefined,
       moatAiSummary: moatAiSummary || undefined,
+      perplexityTeamResearch: perplexityTeamResearch ?? undefined,
+      perplexityTeamCitations: perplexityTeamCitations.length > 0 ? perplexityTeamCitations : undefined,
     };
 
     onProgress?.({ type: 'analysis', data: { sections: brief.sections } });

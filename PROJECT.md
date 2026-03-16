@@ -31,7 +31,7 @@ JamSpread/
     └── src/
         ├── lib/
         │   ├── types.ts                    # All shared TypeScript interfaces — the contract layer imported by every file
-        │   ├── workflow.ts                 # 10-node jam-nodes pipeline: scrape → SERP → AI agents → enrich → competitors → analyze
+        │   ├── workflow.ts                 # 11-node jam-nodes pipeline: scrape → SERP → AI agents → enrich → competitors → Perplexity team → analyze
         │   └── prompts.ts                  # Claude system prompt (VC analyst persona) + dynamic user prompt builder
         │
         ├── app/
@@ -91,7 +91,8 @@ workflow.ts (jam-nodes pipeline)
   Node 8  → NimbleWay news search
   Node 9  → Competitor discovery (NimbleWay → Claude domain extract → Apollo ×3)
   Node 9.5→ NimbleWay moat/competitive intelligence search (parallel)
-  Node 10 → Anthropic Claude → 17-section ResearchBrief JSON
+  Node 9.75→ Perplexity Sonar — founding team deep research (live web, cited)
+  Node 10 → Anthropic Claude → 18-section ResearchBrief JSON (incl. founderDeepDive)
       ↓
 page.tsx renders ResearchBrief + BriefSidebar
       ↓
@@ -109,5 +110,6 @@ User can:  Generate Memo → /api/memo → InvestmentMemo view
 | `FIRECRAWL_API_KEY` | Node 1 (scrape) |
 | `APOLLO_API_KEY` | Nodes 4–7, 9 (org enrichment, people, competitors) |
 | `NIMBLE_API_KEY` | Nodes 2, 3, 8, 9, 9.5 (SERP, news, moat search) |
+| `PERPLEXITY_API_KEY` | Node 9.75 (founding team deep research via Sonar API) |
 
 All NimbleWay and Apollo calls are optional — the workflow degrades gracefully if keys are absent.
