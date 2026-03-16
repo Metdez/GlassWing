@@ -100,6 +100,16 @@ export function getFundingHeadline(b: Brief): string {
 export function getMoatHeadline(b: Brief): string {
   const text = b.sections?.competitiveMoat;
   if (!text?.trim()) return '—';
+  // competitiveMoat uses "HEADER: content" format on each line — firstRealSentence
+  // skips all-caps headers, so we extract the content after the colon instead.
+  const moatTypeMatch = text.match(/MOAT\s+TYPE:\s*(.+)/i);
+  if (moatTypeMatch?.[1]?.trim()) {
+    return moatTypeMatch[1].trim().split(/\s+/).slice(0, 5).join(' ');
+  }
+  const afterHeader = text.match(/^[A-Z][A-Z\s]+:\s*(.+)/m);
+  if (afterHeader?.[1]?.trim()) {
+    return afterHeader[1].trim().split(/\s+/).slice(0, 5).join(' ');
+  }
   return firstRealSentence(text, 5);
 }
 
