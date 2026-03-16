@@ -403,6 +403,8 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
       // Apollo failures are non-fatal — continue without news/jobs data
     }
 
+    onProgress?.({ type: 'enrichment', data: { orgEnrichment, apolloNewsArticles, jobPostings, totalJobPostings: jobPostings.length } });
+
     // ============================================
     // NODE 7: Apollo People Search — leadership + alumni (parallel)
     // ============================================
@@ -458,6 +460,8 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
     } catch {
       // People search failure is non-fatal — continue without network data
     }
+
+    onProgress?.({ type: 'people', data: { companyLeadership, companyAlumni } });
   }
 
   // ============================================
@@ -684,6 +688,8 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
       const mb = moatSearchResult.value.output as any;
       moatAiSummary = mb?.body?.answer ?? '';
     }
+
+    onProgress?.({ type: 'competitors', data: { competitorData, moatAiSummary: moatAiSummary || undefined } });
   }
 
   // ============================================
@@ -776,6 +782,8 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
       competitors: Array.isArray(parsed.competitors) ? parsed.competitors : undefined,
       moatAiSummary: moatAiSummary || undefined,
     };
+
+    onProgress?.({ type: 'analysis', data: { sections: brief.sections } });
 
     return { success: true, brief };
   } catch (parseError) {

@@ -45,6 +45,14 @@ export function buildUserPrompt(
     ? `\nRecent News (last 12 months):\n${newsAiSummary ? `Summary: ${newsAiSummary}\n` : ''}${newsResults.map(r => `- "${r.title}" — ${r.description}${r.publishedDate ? ` (${r.publishedDate})` : ''}\n  ${r.url}`).join('\n')}\n`
     : '';
 
+  const aboutPageSection = aboutPageMarkdown
+    ? `\nTeam / About Page Content:\n${aboutPageMarkdown}\n`
+    : '';
+
+  const founderSearchSection = founderSearchSummary
+    ? `\nFounder & Team Web Search:\n${founderSearchSummary}\n`
+    : '';
+
   const networkSection = (leadership.length > 0 || alumni.length > 0)
     ? `\nApollo People Data:\nCurrent Leadership:\n${
         leadership.length > 0
@@ -112,13 +120,13 @@ Company URL: ${url}
 ${serpSection}
 Website Content:
 ${markdown.slice(0, 12000)}
-${aiPlatformSection}${newsSection}${orgSection}${nimbleNewsSection}${networkSection}${jobPostingsSection}${competitorSection}${competitiveSection}
+${aiPlatformSection}${aboutPageSection}${founderSearchSection}${newsSection}${orgSection}${nimbleNewsSection}${networkSection}${jobPostingsSection}${competitorSection}${competitiveSection}
 Respond with this exact JSON structure:
 {
   "companyName": "string — the company name",
   "sections": {
     "companyOverview": "string — 2-3 sentences on what the company does",
-    "foundingTeam": "string — founders, leadership team, backgrounds if available",
+    "foundingTeam": "string — founders and leadership team with their backgrounds. PRIORITIZE data from: (1) Team/About Page Content if available, (2) Founder & Team Web Search results, (3) Apollo People Data. Include names, roles, and notable prior experience. If genuinely no info exists in any source, say so specifically.",
     "product": "string — what they sell, how it works, who buys it",
     "targetMarket": "string — TAM/SAM, customer segments, verticals",
     "competitiveLandscape": "string — who else does this, how they differentiate",
