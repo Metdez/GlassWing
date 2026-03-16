@@ -89,18 +89,18 @@ export default function CommandCenter({ brief, isStreaming }: Props) {
       </div>
 
       {/* Panel zone */}
-      {panelOpen && (
-        <div
-          className="brief-panel-zone"
-          style={{ width: '55%' }}
-        >
+      <div
+        className="brief-panel-zone"
+        style={{ width: panelOpen ? '55%' : '0' }}
+      >
+        {activeTile && (
           <DetailPanel
             tileId={activeTile}
             brief={brief}
             onClose={() => setActiveTile(null)}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
