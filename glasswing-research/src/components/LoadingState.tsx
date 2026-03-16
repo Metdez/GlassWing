@@ -1,27 +1,34 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const STEPS = [
-  { label: 'Scraping website content', delay: 0 },
-  { label: 'Fetching company data & news', delay: 5000 },
-  { label: 'Finding & enriching competitors', delay: 12000 },
-  { label: 'Running AI analysis', delay: 22000 },
-  { label: 'Assembling research brief', delay: 40000 },
-];
-
 interface Props {
   url: string;
 }
 
+const MESSAGES = [
+  { delay: 0,     text: (url: string) => `Analyzing ${url}...` },
+  { delay: 2000,  text: () => 'Scraping website content...' },
+  { delay: 5000,  text: () => 'Running competitive intelligence...' },
+  { delay: 10000, text: () => 'Enriching company data...' },
+  { delay: 20000, text: () => 'Identifying leadership team...' },
+  { delay: 35000, text: () => 'Running AI analysis across all signals...' },
+];
+
 export default function LoadingState({ url }: Props) {
-  const [activeStep, setActiveStep] = useState(0);
+  const [visible, setVisible] = useState<string[]>([]);
 
   useEffect(() => {
-    const timers = STEPS.slice(1).map((step, i) =>
-      setTimeout(() => setActiveStep(i + 1), step.delay)
-    );
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    MESSAGES.forEach(({ delay, text }) => {
+      const t = setTimeout(() => {
+        setVisible(prev => [...prev, text(url)]);
+      }, delay);
+      timers.push(t);
+    });
+
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [url]);
 
   return (
     <div
@@ -40,33 +47,19 @@ export default function LoadingState({ url }: Props) {
           Analyzing
         </span>
       </div>
-      <p
-        className="text-sm mb-5 truncate"
-        style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-mono)' }}
-      >
-        {url}
-      </p>
-      <div className="flex flex-col gap-3">
-        {STEPS.map((step, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <div
-              className="w-1.5 h-1.5 rounded-full transition-all duration-500"
-              style={{
-                background: i <= activeStep ? 'var(--accent)' : 'var(--text-secondary)',
-                opacity: i <= activeStep ? 1 : 0.3,
-              }}
-            />
-            <span
-              className="text-sm transition-all duration-500"
-              style={{
-                color: i === activeStep ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-ibm-sans)',
-                opacity: i <= activeStep ? 1 : 0.5,
-              }}
-            >
-              {step.label}
-            </span>
-          </div>
+      <div className="flex flex-col gap-2">
+        {visible.map((msg, i) => (
+          <p
+            key={i}
+            className="loading-message text-sm"
+            style={{
+              color: i === visible.length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontFamily: 'var(--font-ibm-sans)',
+              opacity: 0,
+            }}
+          >
+            {msg}
+          </p>
         ))}
       </div>
     </div>
