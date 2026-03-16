@@ -55,7 +55,6 @@ export default function LoadingState({ url }: Props) {
             style={{
               color: i === visible.length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
               fontFamily: 'var(--font-ibm-sans)',
-              opacity: 0,
             }}
           >
             {msg}
