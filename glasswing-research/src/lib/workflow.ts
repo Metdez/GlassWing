@@ -51,8 +51,9 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         url: companyUrl,
         formats: ['markdown'],
         onlyMainContent: true,
+        waitFor: 2000,
       },
-      timeout: 30000,
+      timeout: 45000,
     },
     ctx.toNodeContext('user', 'research-wf')
   );
@@ -69,7 +70,7 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
   const markdown = scrapeBody?.body?.data?.markdown;
   const metadata = scrapeBody?.body?.data?.metadata || {};
 
-  if (!markdown || markdown.length < 100) {
+  if (!markdown || markdown.length < 50) {
     return { success: false, error: 'Website returned insufficient content to analyze.' };
   }
 
