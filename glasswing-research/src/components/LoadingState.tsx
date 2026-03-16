@@ -7,11 +7,11 @@ interface Props {
 
 const MESSAGES: { delay: number; text: (url: string) => string }[] = [
   { delay: 0,     text: (url) => `Analyzing ${url}...` },
-  { delay: 2000,  text: (_url) => 'Scraping website content...' },
-  { delay: 5000,  text: (_url) => 'Running competitive intelligence...' },
-  { delay: 10000, text: (_url) => 'Enriching company data...' },
-  { delay: 20000, text: (_url) => 'Identifying leadership team...' },
-  { delay: 35000, text: (_url) => 'Running AI analysis across all signals...' },
+  { delay: 2000,  text: () => 'Scraping website content...' },
+  { delay: 5000,  text: () => 'Running competitive intelligence...' },
+  { delay: 10000, text: () => 'Enriching company data...' },
+  { delay: 20000, text: () => 'Identifying leadership team...' },
+  { delay: 35000, text: () => 'Running AI analysis across all signals...' },
 ];
 
 export default function LoadingState({ url }: Props) {

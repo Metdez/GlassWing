@@ -64,7 +64,7 @@ export default function Home() {
 
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
-        setError((data as any).error ?? 'An unknown error occurred.');
+        setError((data as { error?: string }).error ?? 'An unknown error occurred.');
         setState('idle');
         return;
       }
@@ -126,22 +126,61 @@ export default function Home() {
 
   const activeBrief = brief ?? (partialBrief as ResearchBrief | null);
 
+  const handleNewSearch = () => {
+    setState('idle');
+    setError(null);
+    setMemoError(null);
+    setBrief(null);
+    setPartialBrief(null);
+  };
+
   if ((state === 'done' || state === 'streaming') && activeBrief) {
     return (
       <div style={{ minHeight: '100vh' }}>
         <main style={{ padding: '2rem 2rem' }}>
           <div className="max-w-5xl mx-auto">
+            {/* Memo error banner */}
+            {memoError && (
+              <div
+                className="mb-4 rounded-lg px-4 py-3 text-sm"
+                style={{
+                  background: 'rgba(255,79,79,0.08)',
+                  border: '1px solid rgba(255,79,79,0.2)',
+                  color: 'var(--accent-red)',
+                  fontFamily: 'var(--font-ibm-sans)',
+                }}
+              >
+                Memo failed: {memoError}
+              </div>
+            )}
+
             <ResearchBriefComponent
               brief={activeBrief}
               onGenerateMemo={handleGenerateMemo}
               memoLoading={memoLoading}
-              memoError={memoError}
               onAsk={() => setChatOpen(true)}
-              onNewSearch={() => setState('idle')}
+              onNewSearch={handleNewSearch}
               isStreaming={state === 'streaming'}
             />
           </div>
         </main>
+
+        {/* Floating chat button */}
+        {!chatOpen && state === 'done' && (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="fixed bottom-6 right-6 z-40 rounded-full px-4 py-2 text-sm shadow-lg"
+            style={{
+              background: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              fontFamily: 'var(--font-jetbrains)',
+              cursor: 'pointer',
+            }}
+          >
+            Ask
+          </button>
+        )}
 
         <BriefChat brief={activeBrief} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
