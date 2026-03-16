@@ -1,3 +1,4 @@
+'use client';
 import type { ResearchBrief as ResearchBriefType } from '@/lib/types';
 import CommandCenter from './CommandCenter';
 import CompanyHeader from './CommandCenter/CompanyHeader';
@@ -7,7 +8,6 @@ interface Props {
   brief: ResearchBriefType;
   onGenerateMemo: () => void;
   memoLoading: boolean;
-  memoError?: string | null;
   onAsk: () => void;
   onNewSearch: () => void;
   isStreaming?: boolean;
@@ -31,7 +31,6 @@ export default function ResearchBrief({
   brief,
   onGenerateMemo,
   memoLoading,
-  memoError,
   onAsk,
   onNewSearch,
   isStreaming,
@@ -45,7 +44,6 @@ export default function ResearchBrief({
         brief={brief}
         onGenerateMemo={onGenerateMemo}
         memoLoading={memoLoading}
-        memoError={memoError}
         onAsk={onAsk}
         onNewSearch={onNewSearch}
       />
@@ -71,14 +69,8 @@ export default function ResearchBrief({
             <table className="w-full text-[11px] border-collapse" style={{ fontFamily: 'var(--font-ibm-mono)' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Company', 'Employees', 'Funding', 'Revenue', 'Stage', 'Founded'].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left py-2 pr-4 uppercase tracking-widest font-normal"
-                      style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)', fontSize: '9px' }}
-                    >
-                      {h}
-                    </th>
+                  {['Company','Employees','Funding','Revenue','Stage','Founded'].map(h => (
+                    <th key={h} className="text-left py-2 pr-4 uppercase tracking-widest font-normal" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)', fontSize: '9px' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -111,6 +103,11 @@ export default function ResearchBrief({
           </div>
         </BriefSection>
       )}
+
+      {/* Footer */}
+      <p className="mt-2 text-xs text-center" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-ibm-mono)' }}>
+        Powered by SpreadJam (jam-nodes) · Firecrawl · Claude · NimbleWay · Apollo
+      </p>
     </div>
   );
 }
