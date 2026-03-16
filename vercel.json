@@ -1,6 +1,0 @@
-{
-  "buildCommand": "cd glasswing-research && npm run build",
-  "outputDirectory": "glasswing-research/.next",
-  "installCommand": "cd glasswing-research && npm install",
-  "framework": "nextjs"
-}
