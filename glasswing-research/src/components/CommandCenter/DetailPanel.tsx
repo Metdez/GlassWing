@@ -1,18 +1,19 @@
 'use client';
-import React from 'react';
 import type { ResearchBrief, NewsArticle } from '@/lib/types';
 import BriefSection from '@/components/BriefSection';
 import type { TileId } from './index';
 
+type PartialBrief = Partial<ResearchBrief>;
+
 interface Props {
   tileId: TileId;
-  brief: Partial<ResearchBrief>;
+  brief: PartialBrief;
   onClose: () => void;
 }
 
 // ─── Reusable sub-renderers ─────────────────────────────────────────────────
 
-function PersonList({ people, title }: { people: ResearchBrief['companyLeadership']; title: string }) {
+function PersonList({ people, title }: { people: PartialBrief['companyLeadership']; title: string }) {
   if (!people?.length) return null;
   return (
     <details
@@ -93,7 +94,7 @@ function NewsTimeline({ articles }: { articles: NewsArticle[] }) {
   );
 }
 
-function JobPostingsList({ brief }: { brief: Partial<ResearchBrief> }) {
+function JobPostingsList({ brief }: { brief: PartialBrief }) {
   const jobs = brief.jobPostings;
   if (!jobs?.length) return null;
   const eng = ['engineer','developer','dev','architect','sre','devops','backend','frontend','fullstack','software','data','ml','ai'];
@@ -131,7 +132,7 @@ function JobPostingsList({ brief }: { brief: Partial<ResearchBrief> }) {
 
 // ─── Tile content renderers ──────────────────────────────────────────────────
 
-function TeamContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function TeamContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
@@ -166,7 +167,7 @@ function TeamContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function ProductContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function ProductContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
@@ -183,7 +184,8 @@ function ProductContent({ brief }: { brief: Partial<ResearchBrief> }) {
           </div>
         )}
         {brief.orgEnrichment && Object.keys(brief.orgEnrichment.departmentalHeadcount).length > 0 && (() => {
-          const entries = Object.entries(brief.orgEnrichment!.departmentalHeadcount).sort(([,a],[,b]) => b-a);
+          const headcount = brief.orgEnrichment!.departmentalHeadcount;
+          const entries = Object.entries(headcount).sort(([,a],[,b]) => b-a);
           const max = entries[0]?.[1] ?? 1;
           return (
             <div className="flex flex-col gap-2">
@@ -205,7 +207,7 @@ function ProductContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function MarketContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function MarketContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
@@ -215,7 +217,7 @@ function MarketContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function CompetitorsContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function CompetitorsContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   const hasTable = brief.competitorData && brief.competitorData.length > 0;
   const hasMoat = brief.moatAiSummary;
@@ -256,7 +258,7 @@ function CompetitorsContent({ brief }: { brief: Partial<ResearchBrief> }) {
                     <td className="py-2 pr-4" style={{ color: 'var(--text-primary)' }}>{brief.orgEnrichment.foundedYear > 0 ? brief.orgEnrichment.foundedYear : 'N/A'}</td>
                   </tr>
                 )}
-                {brief.competitorData!.map((c, i) => (
+                {(brief.competitorData ?? []).map((c, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td className="py-2 pr-4 font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</td>
                     <td className="py-2 pr-4" style={{ color: 'var(--text-secondary)' }}>{c.employeeCount > 0 ? c.employeeCount.toLocaleString() : 'N/A'}</td>
@@ -281,7 +283,7 @@ function CompetitorsContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function FundingContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function FundingContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <BriefSection title="Funding & Financials" content={s.fundingAnalysis || ''} icon="◈" variant="positive">
@@ -327,7 +329,7 @@ function FundingContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function MoatContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function MoatContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
@@ -337,12 +339,12 @@ function MoatContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function FlagsContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function FlagsContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return <BriefSection title="Red Flags" content={s.redFlags || ''} icon="⚠" variant="warning" />;
 }
 
-function PeopleContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function PeopleContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
@@ -354,7 +356,7 @@ function PeopleContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function IntelContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function IntelContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
@@ -386,7 +388,7 @@ function IntelContent({ brief }: { brief: Partial<ResearchBrief> }) {
   );
 }
 
-function FitContent({ brief }: { brief: Partial<ResearchBrief> }) {
+function FitContent({ brief }: { brief: PartialBrief }) {
   const s = brief.sections ?? ({} as ResearchBrief['sections']);
   return (
     <div className="flex flex-col gap-3">
