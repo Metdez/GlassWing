@@ -132,6 +132,7 @@ export default function Home() {
     setMemoError(null);
     setBrief(null);
     setPartialBrief(null);
+    setChatOpen(false);
   };
 
   if ((state === 'done' || state === 'streaming') && activeBrief) {

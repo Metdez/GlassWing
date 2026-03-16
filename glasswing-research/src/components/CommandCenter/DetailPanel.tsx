@@ -142,7 +142,7 @@ function TeamContent({ brief }: { brief: PartialBrief }) {
           <div className="mt-4 flex flex-col gap-3">
             <span className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains)' }}>Founder Profiles</span>
             {s.founderDeepDive.split(/\n+/).filter(Boolean).map((line, i) => (
-              <p key={i} className="text-xs leading-relaxed" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-ibm-sans)' }} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
+              <p key={i} className="text-xs leading-relaxed" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-ibm-sans)' }}>{line}</p>
             ))}
           </div>
         )}
