@@ -143,11 +143,41 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
   });
 
   // ============================================
-  // NODE 2: Google SERP via NimbleWay (optional)
+  // RESULT VARIABLES — declared here so all parallel thunks can write to them
   // ============================================
-  let googleSerpMarkdown: string | null = null;
 
-  if (process.env.NIMBLE_API_KEY) {
+  // Cross-batch bridging variables
+  let apolloOrgId: string | undefined = undefined;
+  let node9ASearchAnswer: string | null = null;
+  let node9BDomains: string[] = [];
+
+  // Enrichment result accumulators
+  let googleSerpMarkdown: string | null = null;
+  let chatgptSays: string | undefined;
+  let perplexitySays: string | undefined;
+  let founderSearchSummary: string | null = null;
+  let apolloNewsArticles: NewsArticle[] = [];
+  let jobPostings: JobPosting[] = [];
+  let companyLeadership: NetworkPerson[] = [];
+  let companyAlumni: NetworkPerson[] = [];
+  let orgEnrichment: OrgEnrichment | undefined;
+  let competitorData: CompetitorComparison[] | undefined;
+  let newsResults: NewsResult[] = [];
+  let newsAiSummary = '';
+  let competitorAiSummary = '';
+  let competitorResults: { title: string; description: string }[] = [];
+  let moatAiSummary = '';
+  let perplexityTeamResearch: string | null = null;
+  let perplexityTeamCitations: string[] = [];
+
+  // ============================================
+  // BATCH A: 8 independent enrichment nodes run in parallel
+  // Nodes 2, 3, 3.5, 4, 8, 9.5, 9.75, 9A
+  // ============================================
+
+  // Node 2: Google SERP via NimbleWay
+  const node2Thunk = async () => {
+    if (!process.env.NIMBLE_API_KEY) return;
     try {
       const serpResult = await httpExecutor(
         {
@@ -165,29 +195,22 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         },
         ctx.toNodeContext('user', 'research-wf')
       );
-
       if (serpResult.success) {
         ctx.storeNodeOutput('googleSerp', serpResult.output);
-        const serpBody = serpResult.output as any;
-        googleSerpMarkdown = serpBody?.body?.data?.markdown ?? null;
+        googleSerpMarkdown = (serpResult.output as any)?.body?.data?.markdown ?? null;
       }
     } catch {
       // NimbleWay failure is non-fatal — continue without SERP data
     }
-  }
+  };
 
-  // ============================================
-  // NODE 3: NimbleWay LLM Agents — ChatGPT + Perplexity (parallel, optional)
-  // ============================================
-  let chatgptSays: string | undefined;
-  let perplexitySays: string | undefined;
-
-  if (process.env.NIMBLE_API_KEY) {
+  // Node 3: NimbleWay LLM Agents — ChatGPT + Perplexity (internally parallel)
+  const node3Thunk = async () => {
+    if (!process.env.NIMBLE_API_KEY) return;
     const nimbleHeaders = {
       'Authorization': `Bearer ${process.env.NIMBLE_API_KEY}`,
       'Content-Type': 'application/json',
     };
-
     const [chatgptResult, perplexityResult] = await Promise.allSettled([
       httpExecutor(
         {
@@ -216,30 +239,23 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         ctx.toNodeContext('user', 'research-wf')
       ),
     ]);
-
     if (chatgptResult.status === 'fulfilled' && chatgptResult.value.success) {
       ctx.storeNodeOutput('chatgptResponse', chatgptResult.value.output);
       chatgptSays = (chatgptResult.value.output as any)?.body?.data?.markdown ?? 'Response unavailable';
     } else {
       chatgptSays = 'Response unavailable';
     }
-
     if (perplexityResult.status === 'fulfilled' && perplexityResult.value.success) {
       ctx.storeNodeOutput('perplexityResponse', perplexityResult.value.output);
       perplexitySays = (perplexityResult.value.output as any)?.body?.data?.markdown ?? 'Response unavailable';
     } else {
       perplexitySays = 'Response unavailable';
     }
+  };
 
-    onProgress?.({ type: 'ai_insights', data: { chatgptSays, perplexitySays } });
-  }
-
-  // ============================================
-  // NODE 3.5: NimbleWay founder/team web search (optional)
-  // ============================================
-  let founderSearchSummary: string | null = null;
-
-  if (process.env.NIMBLE_API_KEY) {
+  // Node 3.5: NimbleWay founder/team web search
+  const node3_5Thunk = async () => {
+    if (!process.env.NIMBLE_API_KEY) return;
     try {
       const founderSearchResult = await httpExecutor(
         {
@@ -260,7 +276,6 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         },
         ctx.toNodeContext('user', 'research-wf')
       );
-
       if (founderSearchResult.success) {
         ctx.storeNodeOutput('founderSearch', founderSearchResult.output);
         founderSearchSummary = (founderSearchResult.output as any)?.body?.answer ?? null;
@@ -268,22 +283,13 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
     } catch {
       // Non-fatal — continue without founder search
     }
-  }
+  };
 
-  // ============================================
-  // NODE 4: Apollo Org Enrichment (optional — requires APOLLO_API_KEY)
-  // ============================================
-  let apolloNewsArticles: NewsArticle[] = [];
-  let jobPostings: JobPosting[] = [];
-  let companyLeadership: NetworkPerson[] = [];
-  let companyAlumni: NetworkPerson[] = [];
-  let orgEnrichment: OrgEnrichment | undefined;
-  let competitorData: CompetitorComparison[] | undefined;
-
-  if (process.env.APOLLO_API_KEY) {
+  // Node 4: Apollo Org Enrichment
+  const node4Thunk = async () => {
+    if (!process.env.APOLLO_API_KEY) return;
     try {
       const domain = new URL(companyUrl).hostname.replace(/^www\./, '');
-
       const orgResult = await httpExecutor(
         {
           url: `https://api.apollo.io/api/v1/organizations/enrich?domain=${domain}`,
@@ -297,13 +303,11 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         },
         ctx.toNodeContext('user', 'research-wf')
       );
-
       ctx.storeNodeOutput('orgEnrichment', orgResult.success ? orgResult.output : null);
       const orgBody = orgResult.output as any;
       const org = orgBody?.body?.organization;
-      const orgId: string | undefined = org?.id;
-
       if (org) {
+        apolloOrgId = org.id;
         orgEnrichment = {
           name: org.name ?? '',
           foundedYear: org.founded_year ?? 0,
@@ -331,194 +335,16 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
           keywords: org.keywords ?? undefined,
         };
       }
-
-      if (orgId) {
-        // ============================================
-        // NODE 5: Apollo News Articles (requires org ID from Node 4)
-        // ============================================
-        const apolloNewsResult = await httpExecutor(
-          {
-            url: 'https://api.apollo.io/api/v1/news_articles/search',
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache',
-              'X-Api-Key': process.env.APOLLO_API_KEY,
-            },
-            body: {
-              organization_ids: [orgId],
-              per_page: 10,
-              page: 1,
-            },
-            timeout: 15000,
-          },
-          ctx.toNodeContext('user', 'research-wf')
-        );
-
-        ctx.storeNodeOutput('newsArticles', apolloNewsResult.success ? apolloNewsResult.output : null);
-
-        if (apolloNewsResult.success) {
-          const newsBody = apolloNewsResult.output as any;
-          const rawArticles: any[] = newsBody?.body?.news_articles || [];
-          apolloNewsArticles = rawArticles.map((a) => ({
-            title: a.title || '',
-            url: a.url || '',
-            source: a.domain || '',
-            snippet: a.snippet || '',
-            publishedAt: a.published_at || '',
-            categories: a.event_categories || [],
-          }));
-        }
-
-        // ============================================
-        // NODE 6: Apollo Job Postings (requires org ID from Node 4)
-        // ============================================
-        const jobPostingsResult = await httpExecutor(
-          {
-            url: `https://api.apollo.io/api/v1/organizations/${orgId}/job_postings?per_page=10`,
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache',
-              'X-Api-Key': process.env.APOLLO_API_KEY,
-            },
-            timeout: 15000,
-          },
-          ctx.toNodeContext('user', 'research-wf')
-        );
-
-        ctx.storeNodeOutput('jobPostings', jobPostingsResult.success ? jobPostingsResult.output : null);
-
-        if (jobPostingsResult.success) {
-          const jobBody = jobPostingsResult.output as any;
-          const rawPostings: any[] = jobBody?.body?.organization_job_postings ?? [];
-          jobPostings = rawPostings.map((j) => ({
-            title: j.title,
-            url: j.url,
-            country: j.country ?? undefined,
-            postedAt: j.posted_at,
-          }));
-        }
-      }
     } catch {
-      // Apollo failures are non-fatal — continue without news/jobs data
+      // Apollo failures are non-fatal — continue without org enrichment
     }
+  };
 
-    onProgress?.({ type: 'enrichment', data: { orgEnrichment, apolloNewsArticles, jobPostings, totalJobPostings: jobPostings.length } });
-
-    // ============================================
-    // NODE 7: Apollo People Search — leadership + alumni (parallel)
-    // ============================================
+  // Node 8: NimbleWay News Search
+  const node8Thunk = async () => {
+    if (!process.env.NIMBLE_API_KEY) return;
     try {
-      const peopleDomain = new URL(companyUrl).hostname.replace(/^www\./, '');
-      const apolloPeopleHeaders = {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-      };
-
-      const [leadershipResult, alumniResult] = await Promise.allSettled([
-        httpExecutor(
-          {
-            url: 'https://api.apollo.io/api/v1/mixed_people/search',
-            method: 'POST',
-            headers: apolloPeopleHeaders,
-            body: {
-              api_key: process.env.APOLLO_API_KEY,
-              q_organization_domains: [peopleDomain],
-              person_titles: ['CEO', 'CTO', 'Founder', 'Co-Founder', 'VP', 'Director', 'Head of'],
-              per_page: 10,
-            },
-            timeout: 30000,
-          },
-          ctx.toNodeContext('user', 'research-wf')
-        ),
-        httpExecutor(
-          {
-            url: 'https://api.apollo.io/api/v1/mixed_people/search',
-            method: 'POST',
-            headers: apolloPeopleHeaders,
-            body: {
-              api_key: process.env.APOLLO_API_KEY,
-              q_organization_domains: [peopleDomain],
-              person_titles: ['Former', 'Ex-'],
-              per_page: 5,
-            },
-            timeout: 30000,
-          },
-          ctx.toNodeContext('user', 'research-wf')
-        ),
-      ]);
-
-      if (leadershipResult.status === 'fulfilled' && leadershipResult.value.success) {
-        ctx.storeNodeOutput('companyLeadership', leadershipResult.value.output);
-        companyLeadership = mapApolloPersons((leadershipResult.value.output as any)?.body?.people);
-      }
-
-      if (alumniResult.status === 'fulfilled' && alumniResult.value.success) {
-        ctx.storeNodeOutput('companyAlumni', alumniResult.value.output);
-        companyAlumni = mapApolloPersons((alumniResult.value.output as any)?.body?.people);
-      }
-    } catch {
-      // People search failure is non-fatal — continue without network data
-    }
-
-    onProgress?.({ type: 'people', data: { companyLeadership, companyAlumni } });
-  }
-
-  // ============================================
-  // NODE 8: NimbleWay News Search (optional)
-  // ============================================
-  let newsResults: NewsResult[] = [];
-  let newsAiSummary = '';
-
-  if (process.env.NIMBLE_API_KEY) {
-    const nimbleNewsResult = await httpExecutor(
-      {
-        url: 'https://sdk.nimbleway.com/v1/search',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.NIMBLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: {
-          query: `${companyNameForSearch} latest news funding`,
-          focus: 'news',
-          max_results: 5,
-          deep_search: false,
-          include_answer: true,
-          time_range: 'year',
-        },
-        timeout: 15000,
-      },
-      ctx.toNodeContext('user', 'research-wf')
-    );
-
-    if (nimbleNewsResult.success) {
-      ctx.storeNodeOutput('newsSearch', nimbleNewsResult.output);
-      const newsBody = nimbleNewsResult.output as any;
-      newsAiSummary = newsBody?.body?.answer ?? '';
-      const rawResults: any[] = newsBody?.body?.results ?? [];
-      newsResults = rawResults.map((r: any): NewsResult => ({
-        title: r.title ?? '',
-        url: r.url ?? '',
-        description: r.description ?? '',
-        publishedDate: r.metadata?.published_date,
-      }));
-    }
-    // On failure: silently continue with empty arrays
-  }
-
-  let competitorAiSummary = '';
-  let competitorResults: { title: string; description: string }[] = [];
-  let moatAiSummary = '';
-
-  // ============================================
-  // NODE 9: Competitor Discovery (requires NIMBLE_API_KEY + APOLLO_API_KEY)
-  // ============================================
-  if (process.env.NIMBLE_API_KEY && process.env.APOLLO_API_KEY) {
-    try {
-      // 9A: NimbleWay general search for top competitors
-      const competitorSearchResult = await httpExecutor(
+      const nimbleNewsResult = await httpExecutor(
         {
           url: 'https://sdk.nimbleway.com/v1/search',
           method: 'POST',
@@ -527,117 +353,41 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
             'Content-Type': 'application/json',
           },
           body: {
-            query: `${companyNameForSearch} top competitors alternatives`,
-            focus: 'general',
+            query: `${companyNameForSearch} latest news funding`,
+            focus: 'news',
             max_results: 5,
             deep_search: false,
             include_answer: true,
+            time_range: 'year',
           },
-          timeout: 30000,
+          timeout: 15000,
         },
         ctx.toNodeContext('user', 'research-wf')
       );
-
-      if (competitorSearchResult.success) {
-        const searchBody = competitorSearchResult.output as any;
-        const searchAnswer: string =
-          searchBody?.body?.answer ||
-          JSON.stringify((searchBody?.body?.results || []).slice(0, 3));
-
-        if (searchAnswer) {
-          // 9B: Ask Claude to extract the top 3 competitor domains
-          const domainExtractionResult = await httpExecutor(
-            {
-              url: 'https://api.anthropic.com/v1/messages',
-              method: 'POST',
-              headers: {
-                'x-api-key': process.env.ANTHROPIC_API_KEY!,
-                'anthropic-version': '2023-06-01',
-                'Content-Type': 'application/json',
-              },
-              body: {
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 200,
-                messages: [
-                  {
-                    role: 'user',
-                    content: `Task: Extract the domain names of the top 3 direct competitors to ${companyNameForSearch} from the search results below.\n\nRules:\n1. Return ONLY a JSON array of domain strings — no markdown, no explanation, no backticks\n2. Use root domains only (e.g., "competitor.com" not "www.competitor.com" or "competitor.com/pricing")\n3. Do NOT include the target company's own domain (${companyNameForSearch} itself)\n4. Only include companies that are clearly direct competitors — same buyer, same problem, overlapping product category\n5. If fewer than 3 clear direct competitors can be identified, return only the ones you are confident about (minimum 1, do not invent companies to reach 3)\n6. Do not include aggregators, review sites (G2, Capterra), or news sites — only actual competitor companies\n\nOutput format: ["domain1.com", "domain2.com", "domain3.com"]\n\nSearch results:\n${searchAnswer}`,
-                  },
-                ],
-              },
-              timeout: 15000,
-            },
-            ctx.toNodeContext('user', 'research-wf')
-          );
-
-          if (domainExtractionResult.success) {
-            const domainText: string =
-              (domainExtractionResult.output as any)?.body?.content?.[0]?.text ?? '';
-            try {
-              const domains: string[] = JSON.parse(
-                domainText.replace(/```json\n?|```\n?/g, '').trim()
-              );
-
-              if (Array.isArray(domains) && domains.length > 0) {
-                // 9C: Apollo org enrichment for each competitor domain (parallel, max 3)
-                const enrichResults = await Promise.allSettled(
-                  domains.slice(0, 3).map((domain) =>
-                    httpExecutor(
-                      {
-                        url: `https://api.apollo.io/api/v1/organizations/enrich?domain=${domain}`,
-                        method: 'GET',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Cache-Control': 'no-cache',
-                          'X-Api-Key': process.env.APOLLO_API_KEY!,
-                        },
-                        timeout: 15000,
-                      },
-                      ctx.toNodeContext('user', 'research-wf')
-                    )
-                  )
-                );
-
-                ctx.storeNodeOutput('competitors', enrichResults);
-
-                competitorData = enrichResults
-                  .map((result, i) => {
-                    if (result.status !== 'fulfilled' || !result.value.success) return null;
-                    const o = (result.value.output as any)?.body?.organization;
-                    if (!o) return null;
-                    return {
-                      name: o.name || domains[i],
-                      domain: o.primary_domain || domains[i],
-                      employeeCount: o.estimated_num_employees || 0,
-                      annualRevenue: o.annual_revenue_printed || String(o.annual_revenue || 'N/A'),
-                      totalFunding: o.total_funding_printed || String(o.total_funding || 'N/A'),
-                      latestFundingStage: o.latest_funding_stage || 'N/A',
-                      foundedYear: o.founded_year || 0,
-                      industry: o.industry || 'N/A',
-                    } satisfies CompetitorComparison;
-                  })
-                  .filter((c): c is CompetitorComparison => c !== null);
-              }
-            } catch {
-              // Domain parsing failed — skip competitor comparison
-            }
-          }
-        }
+      if (nimbleNewsResult.success) {
+        ctx.storeNodeOutput('newsSearch', nimbleNewsResult.output);
+        const newsBody = nimbleNewsResult.output as any;
+        newsAiSummary = newsBody?.body?.answer ?? '';
+        const rawResults: any[] = newsBody?.body?.results ?? [];
+        newsResults = rawResults.map((r: any): NewsResult => ({
+          title: r.title ?? '',
+          url: r.url ?? '',
+          description: r.description ?? '',
+          publishedDate: r.metadata?.published_date,
+        }));
       }
     } catch {
-      // Competitor discovery is non-fatal — continue without comparison data
+      // Non-fatal — continue without news data
     }
-  }
+  };
 
-  // ============================================
-  // NODE 9.5: NimbleWay Moat/Competitive Intelligence (parallel, optional)
-  // ============================================
-  if (process.env.NIMBLE_API_KEY) {
+  // Node 9.5: NimbleWay Moat/Competitive Intelligence (internally parallel)
+  const node9_5Thunk = async () => {
+    if (!process.env.NIMBLE_API_KEY) return;
     const nimbleHeaders = {
       'Authorization': `Bearer ${process.env.NIMBLE_API_KEY}`,
       'Content-Type': 'application/json',
     };
-
     const [competitorSearchResult, moatSearchResult] = await Promise.allSettled([
       httpExecutor(
         {
@@ -672,7 +422,6 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         ctx.toNodeContext('user', 'research-wf')
       ),
     ]);
-
     if (competitorSearchResult.status === 'fulfilled' && competitorSearchResult.value.success) {
       ctx.storeNodeOutput('competitorSearch', competitorSearchResult.value.output);
       const cb = competitorSearchResult.value.output as any;
@@ -683,23 +432,15 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         description: r.description ?? '',
       }));
     }
-
     if (moatSearchResult.status === 'fulfilled' && moatSearchResult.value.success) {
       ctx.storeNodeOutput('moatSearch', moatSearchResult.value.output);
-      const mb = moatSearchResult.value.output as any;
-      moatAiSummary = mb?.body?.answer ?? '';
+      moatAiSummary = (moatSearchResult.value.output as any)?.body?.answer ?? '';
     }
+  };
 
-    onProgress?.({ type: 'competitors', data: { competitorData, moatAiSummary: moatAiSummary || undefined } });
-  }
-
-  // ============================================
-  // NODE 9.75: Perplexity Sonar — Founding Team Deep Research (optional)
-  // ============================================
-  let perplexityTeamResearch: string | null = null;
-  let perplexityTeamCitations: string[] = [];
-
-  if (process.env.PERPLEXITY_API_KEY) {
+  // Node 9.75: Perplexity Sonar — Founding Team Deep Research
+  const node9_75Thunk = async () => {
+    if (!process.env.PERPLEXITY_API_KEY) return;
     try {
       const perplexityBody = {
         model: 'sonar-pro',
@@ -714,7 +455,6 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
           },
         ],
       };
-
       let perplexityTeamResult = await httpExecutor(
         {
           url: 'https://api.perplexity.ai/chat/completions',
@@ -728,7 +468,6 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
         },
         ctx.toNodeContext('user', 'research-wf')
       );
-
       // Retry once on 429
       if (perplexityTeamResult.success && (perplexityTeamResult.output as any)?.status === 429) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -746,7 +485,6 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
           ctx.toNodeContext('user', 'research-wf')
         );
       }
-
       if (perplexityTeamResult.success) {
         ctx.storeNodeOutput('perplexityTeam', perplexityTeamResult.output);
         const pBody = perplexityTeamResult.output as any;
@@ -756,7 +494,291 @@ export async function runResearchWorkflow(companyUrl: string, onProgress?: (even
     } catch {
       // Non-fatal — continue without Perplexity team research
     }
+  };
+
+  // Node 9A: NimbleWay competitor search (first step of competitor discovery)
+  const node9AThunk = async () => {
+    if (!process.env.NIMBLE_API_KEY || !process.env.APOLLO_API_KEY) return;
+    try {
+      const competitorSearchResult = await httpExecutor(
+        {
+          url: 'https://sdk.nimbleway.com/v1/search',
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.NIMBLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: {
+            query: `${companyNameForSearch} top competitors alternatives`,
+            focus: 'general',
+            max_results: 5,
+            deep_search: false,
+            include_answer: true,
+          },
+          timeout: 30000,
+        },
+        ctx.toNodeContext('user', 'research-wf')
+      );
+      if (competitorSearchResult.success) {
+        const searchBody = competitorSearchResult.output as any;
+        node9ASearchAnswer =
+          searchBody?.body?.answer ||
+          JSON.stringify((searchBody?.body?.results || []).slice(0, 3)) ||
+          null;
+      }
+    } catch {
+      // Non-fatal — competitor discovery will be skipped
+    }
+  };
+
+  // Run all Batch A nodes simultaneously
+  await Promise.allSettled([
+    node2Thunk(),
+    node3Thunk(),
+    node3_5Thunk(),
+    node4Thunk(),
+    node8Thunk(),
+    node9_5Thunk(),
+    node9_75Thunk(),
+    node9AThunk(),
+  ]);
+
+  onProgress?.({ type: 'ai_insights', data: { chatgptSays, perplexitySays } });
+
+  // ============================================
+  // BATCH B: 4 nodes that depend on Batch A results
+  // Nodes 5, 6, 7 (need apolloOrgId from Node 4), 9B (needs node9ASearchAnswer)
+  // ============================================
+
+  // Node 5: Apollo News Articles
+  const node5Thunk = async () => {
+    if (!apolloOrgId || !process.env.APOLLO_API_KEY) return;
+    try {
+      const apolloNewsResult = await httpExecutor(
+        {
+          url: 'https://api.apollo.io/api/v1/news_articles/search',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'X-Api-Key': process.env.APOLLO_API_KEY,
+          },
+          body: {
+            organization_ids: [apolloOrgId],
+            per_page: 10,
+            page: 1,
+          },
+          timeout: 15000,
+        },
+        ctx.toNodeContext('user', 'research-wf')
+      );
+      ctx.storeNodeOutput('newsArticles', apolloNewsResult.success ? apolloNewsResult.output : null);
+      if (apolloNewsResult.success) {
+        const newsBody = apolloNewsResult.output as any;
+        const rawArticles: any[] = newsBody?.body?.news_articles || [];
+        apolloNewsArticles = rawArticles.map((a) => ({
+          title: a.title || '',
+          url: a.url || '',
+          source: a.domain || '',
+          snippet: a.snippet || '',
+          publishedAt: a.published_at || '',
+          categories: a.event_categories || [],
+        }));
+      }
+    } catch {
+      // Non-fatal — continue without news articles
+    }
+  };
+
+  // Node 6: Apollo Job Postings
+  const node6Thunk = async () => {
+    if (!apolloOrgId || !process.env.APOLLO_API_KEY) return;
+    try {
+      const jobPostingsResult = await httpExecutor(
+        {
+          url: `https://api.apollo.io/api/v1/organizations/${apolloOrgId}/job_postings?per_page=10`,
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'X-Api-Key': process.env.APOLLO_API_KEY,
+          },
+          timeout: 15000,
+        },
+        ctx.toNodeContext('user', 'research-wf')
+      );
+      ctx.storeNodeOutput('jobPostings', jobPostingsResult.success ? jobPostingsResult.output : null);
+      if (jobPostingsResult.success) {
+        const jobBody = jobPostingsResult.output as any;
+        const rawPostings: any[] = jobBody?.body?.organization_job_postings ?? [];
+        jobPostings = rawPostings.map((j) => ({
+          title: j.title,
+          url: j.url,
+          country: j.country ?? undefined,
+          postedAt: j.posted_at,
+        }));
+      }
+    } catch {
+      // Non-fatal — continue without job postings
+    }
+  };
+
+  // Node 7: Apollo People Search — leadership + alumni (internally parallel)
+  const node7Thunk = async () => {
+    if (!process.env.APOLLO_API_KEY) return;
+    try {
+      const peopleDomain = new URL(companyUrl).hostname.replace(/^www\./, '');
+      const apolloPeopleHeaders = {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      };
+      const [leadershipResult, alumniResult] = await Promise.allSettled([
+        httpExecutor(
+          {
+            url: 'https://api.apollo.io/api/v1/mixed_people/search',
+            method: 'POST',
+            headers: apolloPeopleHeaders,
+            body: {
+              api_key: process.env.APOLLO_API_KEY,
+              q_organization_domains: [peopleDomain],
+              person_titles: ['CEO', 'CTO', 'Founder', 'Co-Founder', 'VP', 'Director', 'Head of'],
+              per_page: 10,
+            },
+            timeout: 30000,
+          },
+          ctx.toNodeContext('user', 'research-wf')
+        ),
+        httpExecutor(
+          {
+            url: 'https://api.apollo.io/api/v1/mixed_people/search',
+            method: 'POST',
+            headers: apolloPeopleHeaders,
+            body: {
+              api_key: process.env.APOLLO_API_KEY,
+              q_organization_domains: [peopleDomain],
+              person_titles: ['Former', 'Ex-'],
+              per_page: 5,
+            },
+            timeout: 30000,
+          },
+          ctx.toNodeContext('user', 'research-wf')
+        ),
+      ]);
+      if (leadershipResult.status === 'fulfilled' && leadershipResult.value.success) {
+        ctx.storeNodeOutput('companyLeadership', leadershipResult.value.output);
+        companyLeadership = mapApolloPersons((leadershipResult.value.output as any)?.body?.people);
+      }
+      if (alumniResult.status === 'fulfilled' && alumniResult.value.success) {
+        ctx.storeNodeOutput('companyAlumni', alumniResult.value.output);
+        companyAlumni = mapApolloPersons((alumniResult.value.output as any)?.body?.people);
+      }
+    } catch {
+      // People search failure is non-fatal — continue without network data
+    }
+  };
+
+  // Node 9B: Claude domain extraction from Node 9A search results
+  const node9BThunk = async () => {
+    if (!node9ASearchAnswer || !process.env.ANTHROPIC_API_KEY) return;
+    try {
+      const domainExtractionResult = await httpExecutor(
+        {
+          url: 'https://api.anthropic.com/v1/messages',
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+          },
+          body: {
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 200,
+            messages: [
+              {
+                role: 'user',
+                content: `Task: Extract the domain names of the top 3 direct competitors to ${companyNameForSearch} from the search results below.\n\nRules:\n1. Return ONLY a JSON array of domain strings — no markdown, no explanation, no backticks\n2. Use root domains only (e.g., "competitor.com" not "www.competitor.com" or "competitor.com/pricing")\n3. Do NOT include the target company's own domain (${companyNameForSearch} itself)\n4. Only include companies that are clearly direct competitors — same buyer, same problem, overlapping product category\n5. If fewer than 3 clear direct competitors can be identified, return only the ones you are confident about (minimum 1, do not invent companies to reach 3)\n6. Do not include aggregators, review sites (G2, Capterra), or news sites — only actual competitor companies\n\nOutput format: ["domain1.com", "domain2.com", "domain3.com"]\n\nSearch results:\n${node9ASearchAnswer}`,
+              },
+            ],
+          },
+          timeout: 15000,
+        },
+        ctx.toNodeContext('user', 'research-wf')
+      );
+      if (domainExtractionResult.success) {
+        const domainText: string = (domainExtractionResult.output as any)?.body?.content?.[0]?.text ?? '';
+        try {
+          const domains: string[] = JSON.parse(domainText.replace(/```json\n?|```\n?/g, '').trim());
+          if (Array.isArray(domains) && domains.length > 0) {
+            node9BDomains = domains.slice(0, 3);
+          }
+        } catch {
+          // Domain parsing failed — skip competitor enrichment
+        }
+      }
+    } catch {
+      // Non-fatal — continue without competitor comparison
+    }
+  };
+
+  // Run all Batch B nodes simultaneously
+  await Promise.allSettled([
+    node5Thunk(),
+    node6Thunk(),
+    node7Thunk(),
+    node9BThunk(),
+  ]);
+
+  onProgress?.({ type: 'enrichment', data: { orgEnrichment, apolloNewsArticles, jobPostings, totalJobPostings: jobPostings.length, newsResults, newsAiSummary } });
+  onProgress?.({ type: 'people', data: { companyLeadership, companyAlumni } });
+
+  // ============================================
+  // NODE 9C: Apollo org enrichment for competitor domains (parallel, max 3)
+  // ============================================
+  if (node9BDomains.length > 0 && process.env.APOLLO_API_KEY) {
+    try {
+      const enrichResults = await Promise.allSettled(
+        node9BDomains.map((domain) =>
+          httpExecutor(
+            {
+              url: `https://api.apollo.io/api/v1/organizations/enrich?domain=${domain}`,
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': process.env.APOLLO_API_KEY!,
+              },
+              timeout: 15000,
+            },
+            ctx.toNodeContext('user', 'research-wf')
+          )
+        )
+      );
+
+      ctx.storeNodeOutput('competitors', enrichResults);
+
+      competitorData = enrichResults
+        .map((result, i) => {
+          if (result.status !== 'fulfilled' || !result.value.success) return null;
+          const o = (result.value.output as any)?.body?.organization;
+          if (!o) return null;
+          return {
+            name: o.name || node9BDomains[i],
+            domain: o.primary_domain || node9BDomains[i],
+            employeeCount: o.estimated_num_employees || 0,
+            annualRevenue: o.annual_revenue_printed || String(o.annual_revenue || 'N/A'),
+            totalFunding: o.total_funding_printed || String(o.total_funding || 'N/A'),
+            latestFundingStage: o.latest_funding_stage || 'N/A',
+            foundedYear: o.founded_year || 0,
+            industry: o.industry || 'N/A',
+          } satisfies CompetitorComparison;
+        })
+        .filter((c): c is CompetitorComparison => c !== null);
+    } catch {
+      // Competitor enrichment is non-fatal — continue without comparison data
+    }
   }
+
+  onProgress?.({ type: 'competitors', data: { competitorData, moatAiSummary: moatAiSummary || undefined } });
 
   // ============================================
   // NODE 10: Analyze with Claude via Anthropic API
