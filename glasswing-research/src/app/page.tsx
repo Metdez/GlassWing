@@ -1,11 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import SearchForm from '@/components/SearchForm';
 import LoadingState from '@/components/LoadingState';
 import ResearchBriefComponent from '@/components/ResearchBrief';
 import BriefChat from '@/components/BriefChat';
 import InvestmentMemo from '@/components/InvestmentMemo';
-import BriefSidebar from '@/components/BriefSidebar';
 import type { ResearchBrief, MemoResponse } from '@/lib/types';
 import type { StreamEvent } from '@/lib/workflow';
 
@@ -21,36 +20,7 @@ export default function Home() {
   const [memoLoading, setMemoLoading] = useState(false);
   const [memoError, setMemoError] = useState<string | null>(null);
 
-  const [activeSectionId, setActiveSectionId] = useState('section-overview');
   const [chatOpen, setChatOpen] = useState(false);
-
-  useEffect(() => {
-    if (state !== 'done' && state !== 'streaming') return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSectionId(entry.target.id);
-          }
-        });
-      },
-      { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
-    );
-
-    const elements = document.querySelectorAll('[id^="section-"]');
-    elements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, [state, brief, partialBrief]);
-
-  const handleSectionClick = (id: string) => {
-    setActiveSectionId(id);
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   const handleGenerateMemo = async () => {
     if (!brief) return;
@@ -158,65 +128,22 @@ export default function Home() {
 
   if ((state === 'done' || state === 'streaming') && activeBrief) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'row' }}>
-        <BriefSidebar
-          companyName={activeBrief.companyName}
-          activeSectionId={activeSectionId}
-          onSectionClick={handleSectionClick}
-          onGenerateMemo={handleGenerateMemo}
-          onNewSearch={handleSubmit}
-          memoLoading={memoLoading}
-        />
-        <main style={{ flex: 1, padding: '4rem 2rem', overflowY: 'auto' }}>
-          <div className="max-w-2xl mx-auto">
-            {memoError && (
-              <div
-                className="mb-4 rounded-lg px-4 py-3 text-sm"
-                style={{
-                  background: 'rgba(255,79,79,0.08)',
-                  border: '1px solid rgba(255,79,79,0.2)',
-                  color: 'var(--accent-red)',
-                  fontFamily: 'var(--font-ibm-sans)',
-                }}
-              >
-                Memo generation failed: {memoError}
-              </div>
-            )}
+      <div style={{ minHeight: '100vh' }}>
+        <main style={{ padding: '2rem 2rem' }}>
+          <div className="max-w-5xl mx-auto">
             <ResearchBriefComponent
               brief={activeBrief}
               onGenerateMemo={handleGenerateMemo}
+              memoLoading={memoLoading}
+              memoError={memoError}
+              onAsk={() => setChatOpen(true)}
+              onNewSearch={() => setState('idle')}
               isStreaming={state === 'streaming'}
             />
           </div>
         </main>
 
         <BriefChat brief={activeBrief} isOpen={chatOpen} onClose={() => setChatOpen(false)} />
-
-        {/* Floating chat button */}
-        {!chatOpen && state === 'done' && (
-          <button
-            onClick={() => setChatOpen(true)}
-            className="chat-float-btn"
-            style={{
-              position: 'fixed',
-              bottom: 24,
-              right: 24,
-              background: 'var(--accent)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '2rem',
-              padding: '12px 20px',
-              fontFamily: 'var(--font-jetbrains)',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-              zIndex: 40,
-            }}
-          >
-            💬 Ask
-          </button>
-        )}
 
         {/* Memo loading overlay */}
         {memoLoading && (
